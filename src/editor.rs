@@ -1,6 +1,9 @@
+use std::io::stdout;
+
 use crossterm::{
     event::{read, Event, KeyCode, KeyEvent, KeyModifiers},
-    terminal::{disable_raw_mode, enable_raw_mode},
+    execute,
+    terminal::{disable_raw_mode, enable_raw_mode, Clear, ClearType},
 };
 
 #[derive(Debug, Default)]
@@ -10,42 +13,59 @@ pub struct Editor {
 
 impl Editor {
     pub fn run(&mut self) {
-        if let Err(err) = self.repl() {
-            panic!("{err:#?}");
-        }
-        print!("Goodbye.\r\n");
+        Self::initialize().unwrap();
+        let result = self.repl();
+        Self::terminate().unwrap();
+        result.unwrap();
+    }
+
+    fn initialize() -> Result<(), std::io::Error> {
+        enable_raw_mode()?;
+        Self::clear_screen()
+    }
+
+    fn terminate() -> Result<(), std::io::Error> {
+        disable_raw_mode()
+    }
+
+    fn clear_screen() -> Result<(), std::io::Error> {
+        let mut stdout = stdout();
+        execute!(stdout, Clear(ClearType::All))
     }
 
     fn repl(&mut self) -> Result<(), std::io::Error> {
-        enable_raw_mode()?;
-
         loop {
-            if let Event::Key(KeyEvent {
-                code,
-                modifiers,
-                kind,
-                state,
-            }) = read()?
-            {
-                println!(
-                    "Code: {code:?} Modifiers: {modifiers:?} Kind: {kind:?} State: {state:?} \r",
-                );
+            let event = read()?;
+            self.evaluate_event(&event);
+            self.refresh_screen()?;
 
-                match code {
-                    KeyCode::Char('q') if modifiers == KeyModifiers::CONTROL => {
-                        self.shoud_quit = true;
-                    }
-                    _ => {}
-                }
-
-                if self.shoud_quit {
-                    break;
-                }
-            };
+            if self.shoud_quit {
+                break;
+            }
         }
 
-        disable_raw_mode()?;
+        Ok(())
+    }
 
+    fn evaluate_event(&mut self, event: &Event) {
+        if let Event::Key(KeyEvent {
+            code, modifiers, ..
+        }) = event
+        {
+            match code {
+                KeyCode::Char('q') if *modifiers == KeyModifiers::CONTROL => {
+                    self.shoud_quit = true;
+                }
+                _ => (),
+            }
+        };
+    }
+
+    fn refresh_screen(&self) -> Result<(), std::io::Error> {
+        if self.shoud_quit {
+            Self::clear_screen()?;
+            print!("Goodbye.\r\n");
+        }
         Ok(())
     }
 }

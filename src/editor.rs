@@ -1,10 +1,7 @@
-use std::io::stdout;
+mod terminal;
 
-use crossterm::{
-    event::{read, Event, KeyCode, KeyEvent, KeyModifiers},
-    execute,
-    terminal::{disable_raw_mode, enable_raw_mode, Clear, ClearType},
-};
+use crossterm::event::{read, Event, KeyCode, KeyEvent, KeyModifiers};
+use terminal::Terminal;
 
 #[derive(Debug, Default)]
 pub struct Editor {
@@ -13,35 +10,32 @@ pub struct Editor {
 
 impl Editor {
     pub fn run(&mut self) {
-        Self::initialize().unwrap();
+        Terminal::initialize().unwrap();
         let result = self.repl();
-        Self::terminate().unwrap();
+        Terminal::terminate().unwrap();
         result.unwrap();
     }
 
-    fn initialize() -> Result<(), std::io::Error> {
-        enable_raw_mode()?;
-        Self::clear_screen()
-    }
-
-    fn terminate() -> Result<(), std::io::Error> {
-        disable_raw_mode()
-    }
-
-    fn clear_screen() -> Result<(), std::io::Error> {
-        let mut stdout = stdout();
-        execute!(stdout, Clear(ClearType::All))
+    fn draw_rows() -> Result<(), std::io::Error> {
+        let rows = Terminal::size()?.1;
+        for row in 0..rows {
+            print!("~");
+            if row + 1 < rows {
+                print!("\r\n");
+            }
+        }
+        Ok(())
     }
 
     fn repl(&mut self) -> Result<(), std::io::Error> {
         loop {
-            let event = read()?;
-            self.evaluate_event(&event);
             self.refresh_screen()?;
-
             if self.shoud_quit {
                 break;
             }
+
+            let event = read()?;
+            self.evaluate_event(&event);
         }
 
         Ok(())
@@ -63,8 +57,11 @@ impl Editor {
 
     fn refresh_screen(&self) -> Result<(), std::io::Error> {
         if self.shoud_quit {
-            Self::clear_screen()?;
+            Terminal::clear_screen()?;
             print!("Goodbye.\r\n");
+        } else {
+            Self::draw_rows()?;
+            Terminal::move_cursor_to(0, 0)?;
         }
         Ok(())
     }

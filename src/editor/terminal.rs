@@ -1,7 +1,4 @@
-use std::{
-    fmt::Display,
-    io::{self, stdout, Write},
-};
+use std::io::{self, stdout, Write};
 
 use crossterm::{
     cursor::{Hide, MoveTo, Show},
@@ -42,7 +39,7 @@ impl Terminal {
         Ok(())
     }
 
-    pub fn print<T: Display>(message: T) -> io::Result<()> {
+    pub fn print(message: &str) -> io::Result<()> {
         Self::queue_command(Print(message))?;
         Ok(())
     }

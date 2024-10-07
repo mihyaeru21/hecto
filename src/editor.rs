@@ -1,3 +1,4 @@
+mod buffer;
 mod terminal;
 mod view;
 
@@ -11,6 +12,7 @@ use view::View;
 pub struct Editor {
     shoud_quit: bool,
     caret_location: Location,
+    view: View,
 }
 
 impl Editor {
@@ -91,7 +93,7 @@ impl Editor {
             Terminal::print("Goodbye.\r\n")?;
         } else {
             Terminal::move_caret_to(Position::default())?;
-            View::render()?;
+            self.view.render()?;
             Terminal::move_caret_to(self.caret_location.into())?;
         }
 

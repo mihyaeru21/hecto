@@ -1,14 +1,17 @@
 use std::io;
 
-use super::terminal::Terminal;
+use super::{buffer::Buffer, terminal::Terminal};
 
 const NAME: &str = env!("CARGO_PKG_NAME");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-pub struct View {}
+#[derive(Debug, Default)]
+pub struct View {
+    buffer: Buffer,
+}
 
 impl View {
-    pub fn render() -> io::Result<()> {
+    pub fn render(&self) -> io::Result<()> {
         let height = Terminal::size()?.height;
         // we allow this since we don't care if our welcome message is put _exactly_ in the middle.
         // it's allowed to be a bit up or down
@@ -16,8 +19,8 @@ impl View {
         let welcom_message_row = height / 3;
         for row in 0..height {
             Terminal::clear_line()?;
-            if row == 0 {
-                Terminal::print("Hello, world!")?;
+            if let Some(line) = self.buffer.lines.get(row) {
+                Terminal::print(line)?;
             } else {
                 Self::draw_empty_row()?;
             }

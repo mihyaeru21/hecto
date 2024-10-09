@@ -11,7 +11,7 @@ pub struct View {
 }
 
 impl View {
-    pub fn render(&self) -> io::Result<()> {
+    pub fn render_welcom_screen() -> io::Result<()> {
         let height = Terminal::size()?.height;
         // we allow this since we don't care if our welcome message is put _exactly_ in the middle.
         // it's allowed to be a bit up or down
@@ -19,11 +19,7 @@ impl View {
         let welcom_message_row = height / 3;
         for row in 0..height {
             Terminal::clear_line()?;
-            if let Some(line) = self.buffer.lines.get(row) {
-                Terminal::print(line)?;
-            } else {
-                Self::draw_empty_row()?;
-            }
+            Self::draw_empty_row()?;
             if row == welcom_message_row {
                 Self::draw_welcom_message()?;
             }
@@ -33,6 +29,39 @@ impl View {
         }
 
         Ok(())
+    }
+
+    pub fn render_buffer(&self) -> io::Result<()> {
+        let height = Terminal::size()?.height;
+        for row in 0..height {
+            Terminal::clear_line()?;
+            if let Some(line) = self.buffer.lines.get(row) {
+                Terminal::print(line)?;
+            } else {
+                Self::draw_empty_row()?;
+            }
+            if row.saturating_add(1) < height {
+                Terminal::print("\r\n")?;
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn render(&self) -> io::Result<()> {
+        if self.buffer.is_empty() {
+            Self::render_welcom_screen()?;
+        } else {
+            self.render_buffer()?;
+        }
+
+        Ok(())
+    }
+
+    pub fn load(&mut self, file_name: &str) {
+        if let Ok(buffer) = Buffer::load(file_name) {
+            self.buffer = buffer;
+        }
     }
 
     fn draw_empty_row() -> io::Result<()> {

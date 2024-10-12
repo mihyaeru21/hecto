@@ -5,7 +5,7 @@ mod view;
 use std::{cmp::min, env, io};
 
 use crossterm::event::{read, Event, KeyCode, KeyEvent, KeyModifiers};
-use terminal::{Position, Terminal};
+use terminal::{Position, Size, Terminal};
 use view::View;
 
 #[derive(Debug, Default)]
@@ -46,39 +46,59 @@ impl Editor {
     }
 
     fn evaluate_event(&mut self, event: &Event) -> io::Result<()> {
-        if let Event::Key(KeyEvent {
-            code, modifiers, ..
-        }) = event
-        {
-            match code {
-                KeyCode::Char('q') if *modifiers == KeyModifiers::CONTROL => {
-                    self.shoud_quit = true;
-                }
-                KeyCode::Up
-                | KeyCode::Down
-                | KeyCode::Left
-                | KeyCode::Right
-                | KeyCode::PageUp
-                | KeyCode::PageDown
-                | KeyCode::Home
-                | KeyCode::End => self.move_caret(*code)?,
-                _ => (),
+        match event {
+            Event::Key(e) => self.evaluate_key_event(e)?,
+            Event::Resize(width, height) => {
+                // clippy::as_conversions: Will run into problems for rare edge case systems where usize < u16
+                #[allow(clippy::as_conversions)]
+                let height = *height as usize;
+                // clippy::as_conversions: Will run into problems for rare edge case systems where usize < u16
+                #[allow(clippy::as_conversions)]
+                let width = *width as usize;
+                self.view.resize(Size { width, height });
             }
-        };
+            _ => (),
+        }
+        Ok(())
+    }
+
+    fn evaluate_key_event(&mut self, event: &KeyEvent) -> io::Result<()> {
+        let KeyEvent {
+            code, modifiers, ..
+        } = event;
+        match code {
+            KeyCode::Char('q') if *modifiers == KeyModifiers::CONTROL => {
+                self.shoud_quit = true;
+            }
+            KeyCode::Up
+            | KeyCode::Down
+            | KeyCode::Left
+            | KeyCode::Right
+            | KeyCode::Char('h' | 'j' | 'k' | 'l')
+            | KeyCode::PageUp
+            | KeyCode::PageDown
+            | KeyCode::Home
+            | KeyCode::End => self.move_caret(*code)?,
+            _ => (),
+        }
         Ok(())
     }
 
     fn move_caret(&mut self, code: KeyCode) -> io::Result<()> {
         match code {
-            KeyCode::Up => self.caret_location.y = self.caret_location.y.saturating_sub(1),
-            KeyCode::Down => {
+            KeyCode::Up | KeyCode::Char('k') => {
+                self.caret_location.y = self.caret_location.y.saturating_sub(1);
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
                 self.caret_location.y = min(
                     self.caret_location.y.saturating_add(1),
                     Terminal::size()?.height,
                 );
             }
-            KeyCode::Left => self.caret_location.x = self.caret_location.x.saturating_sub(1),
-            KeyCode::Right => {
+            KeyCode::Left | KeyCode::Char('h') => {
+                self.caret_location.x = self.caret_location.x.saturating_sub(1);
+            }
+            KeyCode::Right | KeyCode::Char('l') => {
                 self.caret_location.x = min(
                     self.caret_location.x.saturating_add(1),
                     Terminal::size()?.width,
@@ -93,7 +113,7 @@ impl Editor {
         Ok(())
     }
 
-    fn refresh_screen(&self) -> io::Result<()> {
+    fn refresh_screen(&mut self) -> io::Result<()> {
         Terminal::hide_caret()?;
 
         if self.shoud_quit {

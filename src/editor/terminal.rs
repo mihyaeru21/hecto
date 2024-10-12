@@ -89,7 +89,7 @@ impl Terminal {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct Size {
     pub width: usize,
     pub height: usize,

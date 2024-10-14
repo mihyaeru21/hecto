@@ -4,7 +4,10 @@ use crossterm::{
     cursor::{Hide, MoveTo, Show},
     queue,
     style::Print,
-    terminal::{self, disable_raw_mode, enable_raw_mode, Clear, ClearType},
+    terminal::{
+        self, disable_raw_mode, enable_raw_mode, Clear, ClearType, EnterAlternateScreen,
+        LeaveAlternateScreen,
+    },
     Command,
 };
 
@@ -19,12 +22,14 @@ pub struct Terminal {}
 impl Terminal {
     pub fn initialize() -> io::Result<()> {
         enable_raw_mode()?;
+        Self::enter_alternate_screen()?;
         Self::clear_screen()?;
         Self::move_caret_to(Position::default())?;
         Ok(())
     }
 
     pub fn terminate() -> io::Result<()> {
+        Self::leave_alternate_screen()?;
         disable_raw_mode()?;
         Ok(())
     }
@@ -85,6 +90,18 @@ impl Terminal {
 
     fn queue_command<T: Command>(command: T) -> io::Result<()> {
         queue!(stdout(), command)?;
+        Ok(())
+    }
+
+    fn enter_alternate_screen() -> io::Result<()> {
+        Self::queue_command(EnterAlternateScreen)?;
+        Self::execute()?;
+        Ok(())
+    }
+
+    fn leave_alternate_screen() -> io::Result<()> {
+        Self::queue_command(LeaveAlternateScreen)?;
+        Self::execute()?;
         Ok(())
     }
 }

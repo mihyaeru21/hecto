@@ -8,30 +8,38 @@ use crossterm::event::{read, Event, KeyCode, KeyEvent, KeyModifiers};
 use terminal::{Position, Size, Terminal};
 use view::View;
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Editor {
     shoud_quit: bool,
     caret_location: Location,
     view: View,
 }
 
-impl Editor {
-    pub fn run(&mut self) {
-        Terminal::initialize().unwrap();
-        self.handle_args();
-        let result = self.repl();
-        Terminal::terminate().unwrap();
-        result.unwrap();
+impl Drop for Editor {
+    fn drop(&mut self) {
+        let _ = Terminal::terminate();
     }
+}
 
-    fn handle_args(&mut self) {
+impl Editor {
+    pub fn new() -> io::Result<Self> {
+        let mut editor = Self {
+            shoud_quit: false,
+            caret_location: Location::default(),
+            view: View::new()?,
+        };
+
+        Terminal::initialize()?;
+
         let args: Vec<String> = env::args().collect();
         if let Some(file_name) = args.get(1) {
-            self.view.load(file_name);
+            editor.view.load(file_name);
         }
+
+        Ok(editor)
     }
 
-    fn repl(&mut self) -> io::Result<()> {
+    pub fn repl(&mut self) -> io::Result<()> {
         loop {
             self.refresh_screen()?;
             if self.shoud_quit {

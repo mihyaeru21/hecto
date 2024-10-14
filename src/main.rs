@@ -7,10 +7,13 @@
     clippy::integer_division
 )]
 
+use std::io;
+
 use editor::Editor;
 
 mod editor;
 
-fn main() {
-    Editor::default().run();
+fn main() -> io::Result<()> {
+    Editor::new()?.repl()?;
+    Ok(())
 }

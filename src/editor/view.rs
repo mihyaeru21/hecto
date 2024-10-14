@@ -15,17 +15,15 @@ pub struct View {
     size: Size,
 }
 
-impl Default for View {
-    fn default() -> Self {
-        Self {
+impl View {
+    pub fn new() -> io::Result<Self> {
+        Ok(Self {
             buffer: Buffer::default(),
             needs_redraw: true,
-            size: Terminal::size().unwrap_or_default(),
-        }
+            size: Terminal::size()?,
+        })
     }
-}
 
-impl View {
     pub fn load(&mut self, file_name: &str) {
         if let Ok(buffer) = Buffer::load(file_name) {
             self.buffer = buffer;

@@ -15,7 +15,7 @@ use view::View;
 #[derive(Debug)]
 pub struct Editor {
     shoud_quit: bool,
-    caret_location: Location,
+    location: Location,
     view: View,
 }
 
@@ -36,7 +36,7 @@ impl Editor {
 
         Ok(Self {
             shoud_quit: false,
-            caret_location: Location::default(),
+            location: Location::default(),
             view,
         })
     }
@@ -101,21 +101,21 @@ impl Editor {
         let size = Terminal::size().unwrap_or_default();
         match code {
             KeyCode::Up | KeyCode::Char('k') => {
-                self.caret_location.y = self.caret_location.y.saturating_sub(1);
+                self.location.y = self.location.y.saturating_sub(1);
             }
             KeyCode::Down | KeyCode::Char('j') => {
-                self.caret_location.y = min(self.caret_location.y.saturating_add(1), size.height);
+                self.location.y = min(self.location.y.saturating_add(1), size.height);
             }
             KeyCode::Left | KeyCode::Char('h') => {
-                self.caret_location.x = self.caret_location.x.saturating_sub(1);
+                self.location.x = self.location.x.saturating_sub(1);
             }
             KeyCode::Right | KeyCode::Char('l') => {
-                self.caret_location.x = min(self.caret_location.x.saturating_add(1), size.width);
+                self.location.x = min(self.location.x.saturating_add(1), size.width);
             }
-            KeyCode::PageUp => self.caret_location.y = 0,
-            KeyCode::PageDown => self.caret_location.y = size.height.saturating_sub(1),
-            KeyCode::Home => self.caret_location.x = 0,
-            KeyCode::End => self.caret_location.x = size.width.saturating_add(1),
+            KeyCode::PageUp => self.location.y = 0,
+            KeyCode::PageDown => self.location.y = size.height.saturating_sub(1),
+            KeyCode::Home => self.location.x = 0,
+            KeyCode::End => self.location.x = size.width.saturating_add(1),
             _ => (),
         }
     }
@@ -124,8 +124,8 @@ impl Editor {
         let _ = Terminal::hide_caret();
         self.view.render();
         let _ = Terminal::move_caret_to(Position {
-            col: self.caret_location.x,
-            row: self.caret_location.y,
+            col: self.location.x,
+            row: self.location.y,
         });
         let _ = Terminal::show_caret();
         let _ = Terminal::execute();

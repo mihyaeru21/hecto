@@ -59,7 +59,7 @@ impl View {
             } else if current_row == vertical_center && self.buffer.is_empty() {
                 Self::render_line(current_row, &Self::build_welcom_message(width))?;
             } else {
-                Terminal::print("~")?;
+                Self::render_line(current_row, "~")?;
             }
         }
 

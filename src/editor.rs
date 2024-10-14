@@ -2,7 +2,11 @@ mod buffer;
 mod terminal;
 mod view;
 
-use std::{cmp::min, env, io};
+use std::{
+    cmp::min,
+    env, io,
+    panic::{set_hook, take_hook},
+};
 
 use crossterm::event::{read, Event, KeyCode, KeyEvent, KeyModifiers};
 use terminal::{Position, Size, Terminal};
@@ -15,47 +19,50 @@ pub struct Editor {
     view: View,
 }
 
-impl Drop for Editor {
-    fn drop(&mut self) {
-        let _ = Terminal::terminate();
-    }
-}
-
 impl Editor {
     pub fn new() -> io::Result<Self> {
-        let mut editor = Self {
-            shoud_quit: false,
-            caret_location: Location::default(),
-            view: View::new()?,
-        };
-
+        let current_hook = take_hook();
+        set_hook(Box::new(move |panick_info| {
+            let _ = Terminal::terminate();
+            current_hook(panick_info);
+        }));
         Terminal::initialize()?;
 
+        let mut view = View::default();
         let args: Vec<String> = env::args().collect();
         if let Some(file_name) = args.get(1) {
-            editor.view.load(file_name);
+            view.load(file_name);
         }
 
-        Ok(editor)
+        Ok(Self {
+            shoud_quit: false,
+            caret_location: Location::default(),
+            view,
+        })
     }
 
-    pub fn repl(&mut self) -> io::Result<()> {
+    pub fn run(&mut self) {
         loop {
-            self.refresh_screen()?;
+            self.refresh_screen();
             if self.shoud_quit {
                 break;
             }
 
-            let event = read()?;
-            self.evaluate_event(&event)?;
+            match read() {
+                Ok(event) => self.evaluate_event(&event),
+                Err(err) => {
+                    #[cfg(debug_assertions)]
+                    {
+                        panic!("Could not read event: {err:?}");
+                    }
+                }
+            }
         }
-
-        Ok(())
     }
 
-    fn evaluate_event(&mut self, event: &Event) -> io::Result<()> {
+    fn evaluate_event(&mut self, event: &Event) {
         match event {
-            Event::Key(e) => self.evaluate_key_event(e)?,
+            Event::Key(e) => self.evaluate_key_event(e),
             Event::Resize(width, height) => {
                 // clippy::as_conversions: Will run into problems for rare edge case systems where usize < u16
                 #[allow(clippy::as_conversions)]
@@ -67,10 +74,9 @@ impl Editor {
             }
             _ => (),
         }
-        Ok(())
     }
 
-    fn evaluate_key_event(&mut self, event: &KeyEvent) -> io::Result<()> {
+    fn evaluate_key_event(&mut self, event: &KeyEvent) {
         let KeyEvent {
             code, modifiers, ..
         } = event;
@@ -86,56 +92,52 @@ impl Editor {
             | KeyCode::PageUp
             | KeyCode::PageDown
             | KeyCode::Home
-            | KeyCode::End => self.move_caret(*code)?,
+            | KeyCode::End => self.move_point(*code),
             _ => (),
         }
-        Ok(())
     }
 
-    fn move_caret(&mut self, code: KeyCode) -> io::Result<()> {
+    fn move_point(&mut self, code: KeyCode) {
+        let size = Terminal::size().unwrap_or_default();
         match code {
             KeyCode::Up | KeyCode::Char('k') => {
                 self.caret_location.y = self.caret_location.y.saturating_sub(1);
             }
             KeyCode::Down | KeyCode::Char('j') => {
-                self.caret_location.y = min(
-                    self.caret_location.y.saturating_add(1),
-                    Terminal::size()?.height,
-                );
+                self.caret_location.y = min(self.caret_location.y.saturating_add(1), size.height);
             }
             KeyCode::Left | KeyCode::Char('h') => {
                 self.caret_location.x = self.caret_location.x.saturating_sub(1);
             }
             KeyCode::Right | KeyCode::Char('l') => {
-                self.caret_location.x = min(
-                    self.caret_location.x.saturating_add(1),
-                    Terminal::size()?.width,
-                );
+                self.caret_location.x = min(self.caret_location.x.saturating_add(1), size.width);
             }
             KeyCode::PageUp => self.caret_location.y = 0,
-            KeyCode::PageDown => self.caret_location.y = Terminal::size()?.height.saturating_sub(1),
+            KeyCode::PageDown => self.caret_location.y = size.height.saturating_sub(1),
             KeyCode::Home => self.caret_location.x = 0,
-            KeyCode::End => self.caret_location.x = Terminal::size()?.width.saturating_add(1),
+            KeyCode::End => self.caret_location.x = size.width.saturating_add(1),
             _ => (),
         }
-        Ok(())
     }
 
-    fn refresh_screen(&mut self) -> io::Result<()> {
-        Terminal::hide_caret()?;
+    fn refresh_screen(&mut self) {
+        let _ = Terminal::hide_caret();
+        self.view.render();
+        let _ = Terminal::move_caret_to(Position {
+            col: self.caret_location.x,
+            row: self.caret_location.y,
+        });
+        let _ = Terminal::show_caret();
+        let _ = Terminal::execute();
+    }
+}
 
+impl Drop for Editor {
+    fn drop(&mut self) {
+        let _ = Terminal::terminate();
         if self.shoud_quit {
-            Terminal::clear_screen()?;
-            Terminal::print("Goodbye.\r\n")?;
-        } else {
-            Terminal::move_caret_to(Position::default())?;
-            self.view.render()?;
-            Terminal::move_caret_to(self.caret_location.into())?;
+            let _ = Terminal::print("Goodbye.\r\n");
         }
-
-        Terminal::show_caret()?;
-        Terminal::execute()?;
-        Ok(())
     }
 }
 

@@ -25,11 +25,14 @@ impl Terminal {
         Self::enter_alternate_screen()?;
         Self::clear_screen()?;
         Self::move_caret_to(Position::default())?;
+        Self::execute()?;
         Ok(())
     }
 
     pub fn terminate() -> io::Result<()> {
         Self::leave_alternate_screen()?;
+        Self::show_caret()?;
+        Self::execute()?;
         disable_raw_mode()?;
         Ok(())
     }
@@ -69,6 +72,23 @@ impl Terminal {
         Ok(())
     }
 
+    pub fn print_row(row: usize, line_text: &str) -> io::Result<()> {
+        Self::move_caret_to(Position { col: 0, row })?;
+        Self::clear_line()?;
+        Self::print(line_text)?;
+        Ok(())
+    }
+
+    fn enter_alternate_screen() -> io::Result<()> {
+        Self::queue_command(EnterAlternateScreen)?;
+        Ok(())
+    }
+
+    fn leave_alternate_screen() -> io::Result<()> {
+        Self::queue_command(LeaveAlternateScreen)?;
+        Ok(())
+    }
+
     /// Returns the current size of this Terminal.
     /// Edge Case for systems with `usize` < `u16`:
     /// * A `Size` representing the terminal size. Any coordinate `z` truncated to `usize` if `usize` < `z` < `u16`
@@ -90,18 +110,6 @@ impl Terminal {
 
     fn queue_command<T: Command>(command: T) -> io::Result<()> {
         queue!(stdout(), command)?;
-        Ok(())
-    }
-
-    fn enter_alternate_screen() -> io::Result<()> {
-        Self::queue_command(EnterAlternateScreen)?;
-        Self::execute()?;
-        Ok(())
-    }
-
-    fn leave_alternate_screen() -> io::Result<()> {
-        Self::queue_command(LeaveAlternateScreen)?;
-        Self::execute()?;
         Ok(())
     }
 }

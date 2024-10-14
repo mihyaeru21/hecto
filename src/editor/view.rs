@@ -1,8 +1,8 @@
-use std::{cmp::min, io};
+use std::cmp::min;
 
 use super::{
     buffer::Buffer,
-    terminal::{Position, Size, Terminal},
+    terminal::{Size, Terminal},
 };
 
 const NAME: &str = env!("CARGO_PKG_NAME");
@@ -15,15 +15,17 @@ pub struct View {
     size: Size,
 }
 
-impl View {
-    pub fn new() -> io::Result<Self> {
-        Ok(Self {
+impl Default for View {
+    fn default() -> Self {
+        Self {
             buffer: Buffer::default(),
             needs_redraw: true,
-            size: Terminal::size()?,
-        })
+            size: Terminal::size().unwrap_or_default(),
+        }
     }
+}
 
+impl View {
     pub fn load(&mut self, file_name: &str) {
         if let Ok(buffer) = Buffer::load(file_name) {
             self.buffer = buffer;
@@ -35,14 +37,14 @@ impl View {
         self.needs_redraw = true;
     }
 
-    pub fn render(&mut self) -> io::Result<()> {
+    pub fn render(&mut self) {
         if !self.needs_redraw {
-            return Ok(());
+            return;
         }
 
         let Size { width, height } = self.size;
         if width == 0 || height == 0 {
-            return Ok(());
+            return;
         }
 
         // we allow this since we don't care if our welcome message is put _exactly_ in the middle.
@@ -53,24 +55,20 @@ impl View {
         for current_row in 0..height {
             if let Some(line) = self.buffer.lines.get(current_row) {
                 let end = min(line.len(), width);
-                Self::render_line(current_row, &line[0..end])?;
+                Self::render_line(current_row, &line[0..end]);
             } else if current_row == vertical_center && self.buffer.is_empty() {
-                Self::render_line(current_row, &Self::build_welcom_message(width))?;
+                Self::render_line(current_row, &Self::build_welcom_message(width));
             } else {
-                Self::render_line(current_row, "~")?;
+                Self::render_line(current_row, "~");
             }
         }
 
         self.needs_redraw = false;
-
-        Ok(())
     }
 
-    fn render_line(at: usize, line_text: &str) -> io::Result<()> {
-        Terminal::move_caret_to(Position { col: 0, row: at })?;
-        Terminal::clear_line()?;
-        Terminal::print(line_text)?;
-        Ok(())
+    fn render_line(at: usize, line_text: &str) {
+        let result = Terminal::print_row(at, line_text);
+        debug_assert!(result.is_ok(), "Faild to render line");
     }
 
     fn build_welcom_message(width: usize) -> String {

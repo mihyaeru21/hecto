@@ -14,6 +14,6 @@ use editor::Editor;
 mod editor;
 
 fn main() -> io::Result<()> {
-    Editor::new()?.repl()?;
+    Editor::new()?.run();
     Ok(())
 }
